@@ -414,6 +414,7 @@ async function syncList(k){
       break;
     }
     const before = sig(k); rebuild(k); save(); lastOk = Date.now(); setSync('ok');
+    if (st(k).meta.moved && st(k).meta.moved.v !== k && !merging.has(k)){ syncing[k] = false; await followMoved(k); return; }
     if (k === S.active && sig(k) !== before) requestRender(); else renderLists();
   } catch(e){
     console.warn('Sync', e); setSync(e.status === 401 || e.status === 403 || e.status === 404 ? 'err' : (navigator.onLine ? 'err' : 'idle'));
@@ -460,7 +461,10 @@ function renderStatus(){
   else if (syncState === 'busy') el.textContent = 'Wird synchronisiert …';
   else if (lastOk) el.textContent = 'Synchronisiert ' + new Date(lastOk).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
   else el.textContent = navigator.onLine ? '' : 'Offline. Änderungen werden später übertragen.';
-  if (!S.tok) banner(`Noch ohne Synchronisierung. <button class="btn small primary" type="button" id="bnSetup">Zugang einrichten</button>`);
+  const dups = dupPairs();
+  if (dups.length) banner(`Die Liste „${esc(listName(listOf(dups[0][1])))}“ gibt es doppelt. <button class="btn small primary" type="button" id="bnMerge">Zusammenführen</button>`);
+  else if (!S.tok) banner(`Noch ohne Synchronisierung. Schon auf einem anderen Gerät eingerichtet? Dort ⋯ → „Eigenes Gerät verbinden“. <button class="btn small primary" type="button" id="bnSetup">Zugang einrichten</button>`);
+  else banner('');
 }
 function banner(html){ $('#banner').innerHTML = html ? `<div class="banner"><span>${html}</span></div>` : ''; }
 let toastT = null, toastFn = null;
@@ -655,6 +659,9 @@ function renderMenu(){
     <div class="mlist">${S.lists.map(l => `<div class="mrow"><span class="e" aria-hidden="true">${esc(l.emoji || '🛒')}</span><input value="${esc(listName(l))}" data-rename="${esc(l.k)}" maxlength="30" aria-label="Name der Liste"><button class="btn small" type="button" data-share="${esc(l.k)}">Teilen</button><button class="btn small danger" type="button" data-remove="${esc(l.k)}" aria-label="Liste von diesem Gerät entfernen">×</button></div>`).join('')}</div>
     <div class="row"><button class="btn small" type="button" id="newList">+ Neue Liste</button></div>
     <p>„Teilen“ schickt einen Link. Wer ihn öffnet, bekommt die Liste dazu (mit Zugang zur Synchronisierung). Das × entfernt eine Liste nur von diesem Gerät.</p>
+    <h4>Eigene Geräte</h4>
+    <p>Schickt einen Link mit allen Listen und dem Zugang an ein weiteres eigenes Gerät (Handy, Computer). Enthält auch die privaten Listen, also nur an dich selbst schicken.</p>
+    <div class="row"><button class="btn small" type="button" id="deviceGo"${S.tok ? '' : ' disabled'}>Eigenes Gerät verbinden</button></div>
     <h4>Link oder Code einfügen</h4>
     <div class="row"><input type="text" id="joinIn" placeholder="Link einfügen"><button class="btn small" type="button" id="joinGo">Hinzufügen</button></div>
     <h4>Synchronisierung</h4>
@@ -667,7 +674,9 @@ function renderMenu(){
     <div class="row"><button class="btn small" type="button" id="rosterGo"${S.tok ? '' : ' disabled'}>Mit Gerichte-Roster verbinden</button></div>`;
 }
 $('#menuBtn').addEventListener('click', () => { renderMenu(); $('#menuDlg').showModal(); });
-$('#banner').addEventListener('click', e => { if (e.target.closest('#bnSetup')){ renderMenu(); $('#menuDlg').showModal(); setTimeout(() => $('#tokIn').focus(), 50); } });
+$('#banner').addEventListener('click', async e => {
+  if (e.target.closest('#bnMerge')){ e.target.disabled = true; for (const [a, b] of dupPairs()) await mergeList(a, b); toast('Listen zusammengeführt'); render(); return; }
+  if (e.target.closest('#bnSetup')){ renderMenu(); $('#menuDlg').showModal(); setTimeout(() => $('#tokIn').focus(), 50); } });
 $('#menuBody').addEventListener('change', e => {
   const r = e.target.closest('[data-rename]'); if (!r) return;
   const v = r.value.trim(); if (!v) return; const l = listOf(r.dataset.rename); l.name = v; touch('meta', { k: 'name', v }, l.k); renderLists();
@@ -695,8 +704,47 @@ $('#menuBody').addEventListener('click', async e => {
     return;
   }
   if (t.closest('#tokDel')){ S.tok = ''; save(); renderMenu(); renderStatus(); return; }
+  if (t.closest('#deviceGo')){ await share('Einkaufslisten für mein Gerät', joinLink(S.lists, true), t.closest('#deviceGo')); return; }
   if (t.closest('#rosterGo')){ location.href = rosterLink(); return; }
 });
+
+/* Listen zusammenführen */
+const merging = new Set();
+function removeLocal(k){
+  S.lists = S.lists.filter(l => l.k !== k); delete S.rem[k]; delete S.dirty[k]; delete view[k];
+  if (S.active === k) S.active = S.lists.length ? S.lists[0].k : '';
+}
+async function mergeList(fromK, intoK){
+  if (fromK === intoK || merging.has(fromK) || !listOf(fromK) || !listOf(intoK)) return;
+  merging.add(fromK);
+  try {
+    if (S.tok && dataRepo()){ await syncList(intoK); await syncList(fromK); }
+    const from = st(fromK), into = st(intoK);
+    const items = Object.values(from.items).filter(i => !i.del).map(i => ({ name: i.name, note: i.note, cat: i.cat }));
+    if (items.length) addEntries(items, intoK, true);
+    Object.values(from.hist).forEach(h => { const o = into.hist[h.k]; if (!o || h.last > o.last) touch('hist', { ...h, n: (o ? o.n : 0) + h.n }, intoK); });
+    const cutNames = new Set(Object.values(into.cuts).filter(c => !c.del).map(c => norm(c.name)));
+    Object.values(from.cuts).filter(c => !c.del && !cutNames.has(norm(c.name))).forEach(c => touch('cuts', { ...c, id: rid(6) }, intoK));
+    Object.values(from.cats).forEach(c => { if (!into.cats[c.k]) touch('cats', { ...c }, intoK); });
+    // Hinweis in der alten Liste: andere Geräte, die sie noch nutzen, ziehen automatisch mit um
+    const L = listOf(intoK);
+    touch('meta', { k: 'moved', v: intoK, n: listName(L), e: L.emoji || '' }, fromK);
+    if (S.tok && dataRepo()) await syncList(fromK);
+    removeLocal(fromK); if (S.active === '' || !listOf(S.active)) S.active = intoK;
+    save(); render(); syncList(intoK);
+  } finally { merging.delete(fromK); }
+}
+async function followMoved(k){
+  const m = st(k).meta.moved; if (!m || !m.v || m.v === k || merging.has(k)) return;
+  if (!listOf(m.v)){ S.lists.push({ k: m.v, name: m.n || listName(listOf(k)), emoji: m.e || listOf(k).emoji, fid: await fileId(m.v) }); rebuild(m.v); }
+  if (S.active === k) S.active = m.v;
+  await mergeList(k, m.v); toast('Liste „' + (m.n || 'Liste') + '“ wurde zusammengeführt');
+}
+function dupPairs(){
+  const seen = {}, pairs = [];
+  S.lists.forEach(l => { const n = norm(listName(l)); if (seen[n]) pairs.push([seen[n].k, l.k]); else seen[n] = l; });
+  return pairs;   // [ältere, neuere]: die neuere (per Link verbundene) bleibt
+}
 
 /* Beitreten über Link */
 let joinData = null;
@@ -711,14 +759,15 @@ $('#joNo').addEventListener('click', () => { joinData = null; $('#joinDlg').clos
 $('#joYes').addEventListener('click', async () => {
   const d = joinData; joinData = null; $('#joinDlg').close(); if (!d) return;
   if (d.t && !S.tok) S.tok = d.t;
+  let merged = 0;
   for (const x of (d.l || [])){
     if (!x.k || listOf(x.k)) continue;
-    // eine leere, nie synchronisierte Liste gleichen Namens wird ersetzt
-    const twin = S.lists.find(l => listName(l) === x.n && !S.rem[l.k] && !activeItems(l.k).length);
-    if (twin){ S.lists = S.lists.filter(l => l !== twin); delete S.dirty[twin.k]; delete view[twin.k]; }
-    S.lists.push({ k: x.k, name: x.n || 'Liste', emoji: x.e || '🧺', fid: await fileId(x.k) }); rebuild(x.k); S.active = x.k;
+    const twin = S.lists.find(l => listName(l) === x.n);
+    S.lists.push({ k: x.k, name: x.n || 'Liste', emoji: x.e || (twin && twin.emoji) || '🧺', fid: await fileId(x.k) }); rebuild(x.k); S.active = x.k;
+    // gleichnamige Liste auf diesem Gerät: Einträge übernehmen, alte Liste entfernen
+    if (twin){ await mergeList(twin.k, x.k); merged++; }
   }
-  save(); banner(''); render(); syncAll(); toast('Liste hinzugefügt');
+  save(); render(); syncAll(); toast(merged ? 'Liste hinzugefügt und mit der gleichnamigen zusammengeführt' : 'Liste hinzugefügt');
 });
 
 /* ============ Start ============ */
@@ -735,6 +784,8 @@ async function init(){
   const m = location.hash.match(/^#\/join\?d=([A-Za-z0-9_-]+)/);
   if (m){ history.replaceState(null, '', location.pathname); askJoin(m[1]); }
 }
+// Link geöffnet, während die App schon offen ist
+window.addEventListener('hashchange', () => { const m = location.hash.match(/^#\/join\?d=([A-Za-z0-9_-]+)/); if (m){ history.replaceState(null, '', location.pathname); askJoin(m[1]); } });
 let tick = 0;
 setInterval(() => { if (document.visibilityState !== 'visible' || !navigator.onLine) return; tick++; syncList(S.active); if (tick % 4 === 0) S.lists.filter(l => l.k !== S.active).forEach(l => syncList(l.k)); }, CONFIG.pollMs);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncAll(); });
