@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Einkauf</title>
+<meta name="description" content="Gemeinsame und private Einkaufslisten mit Kategorien, Vorschlägen und Shortcuts.">
+<meta name="theme-color" content="#F2F5F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101715" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Einkauf">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --ink:#14231F; --muted:#56675F; --line:#D5DED9;
+  --accent:#FFC01E; --accent-ink:#1B1500; --focus:#0E6B52; --danger:#B83A2B;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:14px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#101715; --surface:#18211E; --ink:#E9F0EC; --muted:#9DB0A8; --line:#2A3631; --focus:#5FD3AE; --danger:#F08A7C; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.45 var(--body);min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+button,a,label,select{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+[hidden]{display:none!important}
+
+/* Kopf */
+.top{position:sticky;top:0;z-index:30;background:var(--bg);padding-top:env(safe-area-inset-top);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:10px;min-height:56px}
+.brand{font:800 1.55rem/1 var(--display);letter-spacing:-.02em;margin:0;display:flex;align-items:center;gap:8px}
+.sync{width:10px;height:10px;border-radius:50%;background:var(--line);flex:0 0 auto}
+.sync[data-s=ok]{background:#2F9A4B}.sync[data-s=busy]{background:var(--accent);animation:pulse 1s infinite}.sync[data-s=err]{background:var(--danger)}
+@keyframes pulse{50%{opacity:.35}}
+.iconbtn{margin-left:auto;width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);cursor:pointer;font-size:1.3rem;line-height:1;display:grid;place-items:center}
+.lists{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+.lists::-webkit-scrollbar{display:none}
+.ltab{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:2px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:700;cursor:pointer}
+.ltab[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.ltab .n{font-size:.8rem;font-weight:700;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:0 7px;min-width:22px;text-align:center}
+
+/* Eingabe */
+.add{position:relative;display:flex;gap:8px;margin:16px 0 10px}
+.add input{flex:1;min-width:0;min-height:52px;border:2px solid var(--line);background:var(--surface);border-radius:var(--r);padding:0 16px;font-size:16px}
+.add input:focus{border-color:var(--ink);outline:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--ink);background:transparent;border-radius:var(--r);padding:9px 16px;font-weight:700;cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:5px 12px;font-size:.92rem;border-width:1.5px}
+.btn.danger{border-color:var(--danger);color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:default}
+.add .btn{min-width:52px;font-size:1.5rem;padding:0 14px}
+.ac{position:absolute;left:0;right:62px;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);box-shadow:0 12px 30px rgba(0,0,0,.14);overflow:hidden}
+.ac button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;padding:10px 14px;cursor:pointer}
+.ac button:hover,.ac button[aria-selected=true]{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.ac small{color:var(--muted);margin-left:auto}
+
+/* Shortcuts */
+.cuts{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.cuts::-webkit-scrollbar{display:none}
+.cut{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-weight:600;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.cut small{color:var(--muted);font-weight:500}
+.cut.new{border-style:dashed;color:var(--muted)}
+
+/* Liste */
+.banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--surface);border:1.5px solid var(--line);border-left:5px solid var(--accent);border-radius:var(--r);padding:12px 14px;margin:6px 0 4px}
+.sec{margin-top:18px}
+.sec h2{display:flex;align-items:center;gap:8px;font:700 1rem var(--display);margin:0 0 10px;color:var(--muted)}
+.sec h2 b{color:var(--ink);font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;perspective:900px}
+.tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-height:118px;padding:12px 6px 10px;border:0;border-radius:18px;background:var(--surface);box-shadow:0 1px 0 var(--line),0 2px 10px rgba(20,35,31,.06);cursor:pointer;text-align:center;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .12s}
+.tile:active{transform:scale(.96)}
+.emo{display:grid;place-items:center;width:58px;height:58px;border-radius:20px;font-size:32px;line-height:1;background:color-mix(in srgb,var(--c) 24%,var(--surface));box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--c) 30%,transparent)}
+.emo span{filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.18));transform:rotate(-6deg)}
+.tile .nm{font-weight:700;font-size:.95rem;line-height:1.2;word-break:break-word;hyphens:auto}
+.tile .nt{font-size:.78rem;color:var(--muted);line-height:1.2}
+.tile.done{animation:spinOut .58s cubic-bezier(.55,0,.75,.2) forwards;pointer-events:none}
+@keyframes spinOut{0%{transform:none}40%{transform:rotateY(200deg) scale(1.04)}100%{transform:rotateY(560deg) scale(.15);opacity:0}}
+.tile.flash{animation:flash .7s}
+@keyframes flash{30%{box-shadow:0 0 0 4px var(--accent)}}
+@media (prefers-reduced-motion:reduce){.tile.done{animation:fade .25s forwards}@keyframes fade{to{opacity:0}}}
+.empty{text-align:center;padding:40px 0 28px;color:var(--muted)}
+.empty strong{display:block;font:800 1.5rem var(--display);color:var(--ink);margin-bottom:4px}
+
+/* Vorschläge */
+.sug{margin:30px 0 20px}
+.sug h2{font:700 1rem var(--display);color:var(--muted);margin:0 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:transparent;border-radius:999px;padding:5px 12px 5px 8px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.chip .e{font-size:1.1rem}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* Dialoge */
+dialog{border:0;border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 40px);background:var(--bg);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(8,16,13,.5)}
+.dh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 6px}
+.dh h3{font:800 1.3rem var(--display);margin:0}
+.x{background:none;border:0;font-size:1.7rem;line-height:1;cursor:pointer;padding:4px 8px}
+.db{padding:6px 16px 18px;display:grid;gap:12px}
+.db label{display:grid;gap:5px;font-weight:600;font-size:.93rem}
+.db input[type=text],.db input[type=password],.db textarea,.db select{width:100%;border:2px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 12px;font-size:16px;font-weight:400}
+.db textarea{min-height:130px;resize:vertical}
+.db p{margin:0;color:var(--muted);font-size:.92rem}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row.end{justify-content:flex-end}
+.mlist{display:grid;gap:8px}
+.mrow{display:flex;gap:8px;align-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:8px 10px}
+.mrow input{flex:1;min-width:0;border:0;background:transparent;font-weight:700;font-size:16px;padding:4px}
+.mrow .e{font-size:1.3rem}
+h4{margin:10px 0 0;font:700 1rem var(--display)}
+.msg{min-height:1.2em;font-size:.92rem}.msg.err{color:var(--danger)}
+
+/* Fuß, Hinweise */
+.foot{color:var(--muted);font-size:.86rem;padding:24px 16px calc(28px + env(safe-area-inset-bottom));text-align:center}
+.linkbtn{background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;color:var(--muted);font:inherit}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:14px;background:var(--ink);color:var(--bg);padding:10px 12px 10px 18px;border-radius:999px;z-index:100;max-width:calc(100vw - 24px);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.toast button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:6px 12px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <h1 class="brand"><span aria-hidden="true">🛒</span>Einkauf<span class="sync" id="sync" title="Synchronisierung"></span></h1>
+    <button class="iconbtn" id="menuBtn" type="button" aria-label="Listen und Einstellungen">⋯</button>
+  </div>
+  <div class="wrap"><div class="lists" id="lists" role="tablist" aria-label="Listen"></div></div>
+</header>
+
+<main class="wrap">
+  <div id="banner"></div>
+  <form class="add" id="addForm" autocomplete="off">
+    <input id="addIn" type="text" placeholder="Was wird gebraucht?" aria-label="Neuer Eintrag" enterkeyhint="done" autocapitalize="sentences">
+    <button class="btn primary" type="submit" aria-label="Hinzufügen">+</button>
+    <div class="ac" id="ac" role="listbox" hidden></div>
+  </form>
+  <div class="cuts" id="cuts" aria-label="Shortcuts"></div>
+  <section id="listArea" aria-live="polite"></section>
+  <section class="sug" id="sugArea"></section>
+</main>
+
+<footer class="foot">
+  <p id="status">&nbsp;</p>
+  <p><button class="linkbtn" id="installBtn" type="button" hidden>App installieren</button></p>
+  <p>Antippen = erledigt · Gedrückt halten oder Rechtsklick = bearbeiten</p>
+</footer>
+
+<dialog id="editDlg" aria-labelledby="edTitle">
+  <form method="dialog" class="dh"><h3 id="edTitle">Bearbeiten</h3><button class="x" value="x" aria-label="Schließen">×</button></form>
+  <div class="db">
+    <label>Name<input id="edName" type="text" maxlength="80"></label>
+    <label>Eigenschaften<input id="edNote" type="text" maxlength="120" placeholder="z. B. 2 Stück, bio"></label>
+    <div class="chips" id="edChips"></div>
+    <label>Kategorie<select id="edCat"></select></label>
+    <div class="row end"><button class="btn danger small" id="edDel" type="button">Löschen</button><button class="btn primary" id="edSave" type="button">Speichern</button></div>
+  </div>
+</dialog>
+
+<dialog id="cutDlg" aria-labelledby="cuTitle">
+  <form method="dialog" class="dh"><h3 id="cuTitle">Shortcut</h3><button class="x" value="x" aria-label="Schließen">×</button></form>
+  <div class="db">
+    <label>Name<input id="cuName" type="text" maxlength="40" placeholder="z. B. Wocheneinkauf"></label>
+    <label>Einträge (einer pro Zeile)<textarea id="cuItems" placeholder="Brot&#10;Eier&#10;Mandelmilch"></textarea></label>
+    <div class="row"><button class="btn small" id="cuFromList" type="button">Aktuelle Liste übernehmen</button></div>
+    <div class="row end"><button class="btn danger small" id="cuDel" type="button">Löschen</button><button class="btn primary" id="cuSave" type="button">Speichern</button></div>
+  </div>
+</dialog>
+
+<dialog id="menuDlg" aria-labelledby="meTitle">
+  <form method="dialog" class="dh"><h3 id="meTitle">Listen &amp; Einstellungen</h3><button class="x" value="x" aria-label="Schließen">×</button></form>
+  <div class="db" id="menuBody"></div>
+</dialog>
+
+<dialog id="joinDlg" aria-labelledby="joTitle">
+  <form method="dialog" class="dh"><h3 id="joTitle">Liste hinzufügen</h3><button class="x" value="x" aria-label="Schließen">×</button></form>
+  <div class="db"><p id="joText"></p><div class="row end"><button class="btn" id="joNo" type="button">Abbrechen</button><button class="btn primary" id="joYes" type="button">Hinzufügen</button></div></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden><span id="toastMsg"></span><button id="toastBtn" type="button" hidden>Rückgängig</button></div>
+
+<noscript><p class="wrap">Diese App braucht JavaScript.</p></noscript>
+
+<script>
+(() => {
+'use strict';
+/* ============ Einstellungen ============ */
+const CONFIG = {
+  dataRepo: '',            // leer = <besitzer>/shopping-data, Besitzer aus der Adresse (name.github.io)
+  dataRepoName: 'shopping-data',
+  branch: 'main',
+  rosterUrl: '../recipes/', // Gerichte-Roster, für die Verbindung auf dem iPhone
+  pollMs: 15000
+};
+try { Object.assign(CONFIG, window.SHOP_CONFIG || {}); } catch(e){}
+const STORE = 'einkauf-v1';
+const COLS = ['items', 'hist', 'cuts', 'cats', 'meta'];
+const keyOf = (col, e) => (col === 'items' || col === 'cuts') ? e.id : e.k;
+
+/* ============ Hilfen ============ */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const strip = s => String(s).toLowerCase().replace(/ß/g,'ss').normalize('NFD').replace(/[̀-ͯ]/g,'');
+const norm = s => strip(s).replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+let lastTs = 0; const nowTs = () => (lastTs = Math.max(Date.now(), lastTs + 1));
+const rid = (n = 16) => { const a = crypto.getRandomValues(new Uint8Array(n)); return b64enc(a).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+function b64enc(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+function b64dec(s){ const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+const b64uJSON = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64uJSON = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/')))));
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ============ Kategorien und Emojis ============ */
+const CATS = [
+  { id: 'obst',      label: 'Obst & Gemüse',      e: '🥦', c: '#3FA34D' },
+  { id: 'brot',      label: 'Brot & Backwaren',   e: '🥖', c: '#D9A441' },
+  { id: 'kuehl',     label: 'Kühlregal & Eier',   e: '🧀', c: '#4A90D9' },
+  { id: 'fleisch',   label: 'Fleisch & Fisch',    e: '🥩', c: '#D05A45' },
+  { id: 'tk',        label: 'Tiefkühl',           e: '🧊', c: '#4FB6D6' },
+  { id: 'trocken',   label: 'Vorrat & Konserven', e: '🍝', c: '#E08E3C' },
+  { id: 'suess',     label: 'Snacks & Süßes',     e: '🍫', c: '#D9649B' },
+  { id: 'getraenke', label: 'Getränke',           e: '🥤', c: '#2BA79A' },
+  { id: 'drogerie',  label: 'Drogerie & Haushalt',e: '🧴', c: '#8E6CD1' },
+  { id: 'ess',       label: 'Gewürze & Basics',   e: '🧂', c: '#8A9A93' },
+  { id: 'sonst',     label: 'Sonstiges',          e: '🛒', c: '#9AA5A0' }
+];
+const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+const WL = s => s.split(' ');
+const KW = {
+  drog: WL('klopapier toilettenpapier zahnpasta zahnburste zahnseide shampoo spulung duschgel seife deo spulmittel spulmaschinentabs tabs waschmittel weichspuler mullbeutel mullsack mulltute kuchenrolle kuchenpapier taschentuch taschentucher schwamm putzmittel reiniger allzweckreiniger batterie batterien gluhbirne alufolie frischhaltefolie backpapier gefrierbeutel tampon tampons binden slipeinlagen rasierer windeln wattepads pflaster sonnencreme handcreme bodylotion katzenfutter hundefutter katzenstreu kerzen'),
+  drinkEq: new Set(WL('wasser mineralwasser sprudel bier wein rotwein weisswein sekt prosecco saft schorle cola limo limonade mate kaffee kaffeebohnen espresso tee eistee kombucha gin rum wodka whisky likor tonic')),
+  drinkInc: WL('saft schorle limonade bier sprudel'),
+  tkStart: WL('tiefkuhl tk'),
+  tkEq: new Set(WL('eis eiscreme pommes fischstabchen tiefkuhlpizza tkpizza rahmspinat erbsenmix')),
+  sweetInc: WL('schokolad chips keks gummibar gummi bonbon riegel nutella popcorn salzstang lakritz praline marshmallow waffeln studentenfutter'),
+  packEnd: WL('sauce sosse bruhe bouillon wurfel paste mark passata dressing erdnussbutter mandelbutter mehl griess'),
+  packEq: new Set(WL('dose dosen konserve stuckige passierte kokosmilch tahin miso oliven kapern honig senf ketchup mayo mayonnaise sirup ahornsirup sauerkraut marmelade sojahack salsa sriracha gochujang kichererbsen')),
+  essEq: new Set(WL('salz pfeffer zucker natron backpulver speisestarke starke lorbeer kreuzkummel kummel zimt muskat nelken sternanis piment kardamom kurkuma curry chiliflocken paprikapulver gewurz gewurze vanille vanillezucker meersalz safran oregano')),
+  essEnd: WL('pulver essig starke zucker pfeffer'),
+  meatStart: WL('hahnchen huhn pute puten schwein hackfleisch hack bacon schinken steak lamm lachs thunfisch garnele shrimp kabeljau forelle fisch salami chorizo ente rind'),
+  meatInc: WL('wurst schinken speck salsiccia gulasch rindfleisch sardelle'),
+  breadEnd: WL('brot brotchen tortilla tortillas teig fladen naan baguette pita wraps toast croissant brezel semmel'),
+  breadEq: new Set(WL('naan pita wrap wraps toast brioche brotchen ciabatta croissants brezeln kuchen')),
+  coolInc: WL('joghurt jogurt sahne emmental gouda queso ghee tofu mozzarella parmesan ricotta feta kase cheddar paneer tempeh skyr quark schmand milch drink kimchi halloumi mascarpone margarine aufschnitt hummus pesto frischkase butter'),
+  coolEq: new Set(WL('ei eier')),
+  vegInc: WL('shiitake zuckerschote schalotte spinat salat kohl tomat zwiebel pilz champignon kartoffel sellerie kresse sprossen paprika gurke zucchini aubergine kurbis mangold spargel knoblauch ingwer karotte mohre brokkoli fenchel radies rettich beete chili jalapeno avocado zitron limett orange mandarin clementin apfel birne banane beere mango ananas traube pflaume pfirsich nektarin kirsche melone granatapfel feige kiwi lauch erbsen pak edamame gemuse obst krauter basilikum petersilie koriander minze dill schnittlauch rucola'),
+  dryInc: WL('nudel pasta spaghetti penne fusilli tagliatelle lasagne gnocchi reis bulgur couscous quinoa polenta hirse kokos mandel cashew nuss kerne sesam flocken musli linsen bohnen kakao hefe panko rosinen datteln nori alge mehl ol')
+};
+function classify(name){
+  const t = norm(name); if (!t) return 'sonst';
+  const toks = t.split(' ');
+  const sw = l => toks.some(x => l.some(w => x.startsWith(w)));
+  const ew = l => toks.some(x => l.some(w => x === w || (x.length > w.length && x.endsWith(w))));
+  const inc = l => toks.some(x => l.some(w => x.includes(w)));
+  const eq = set => toks.some(x => set.has(x));
+  if (inc(KW.drog)) return 'drogerie';
+  if (toks.some(x => x.endsWith('essig'))) return 'ess';
+  if (eq(KW.tkEq) || sw(KW.tkStart)) return 'tk';
+  if (eq(KW.drinkEq) || toks.some(x => KW.drinkInc.some(w => x.endsWith(w)))) return 'getraenke';
+  if (inc(KW.sweetInc)) return 'suess';
+  if (ew(KW.packEnd) || eq(KW.packEq)) return 'trocken';
+  const oil = toks.some(x => (x === 'ol' || (x.length >= 4 && x.endsWith('ol'))) && !/^(alkohol)$/.test(x));
+  if (eq(KW.essEq) || ew(KW.essEnd) || oil) return 'ess';
+  if (sw(KW.meatStart) || inc(KW.meatInc)) return 'fleisch';
+  if (ew(KW.breadEnd) || eq(KW.breadEq)) return 'brot';
+  if (inc(KW.coolInc) || eq(KW.coolEq)) return 'kuehl';
+  if (inc(KW.vegInc)) return 'obst';
+  if (inc(KW.dryInc)) return 'trocken';
+  return 'sonst';
+}
+// Emoji je Eintrag: genaue Wörter (=) oder Wortteile; die erste Regel gewinnt
+const EMO = [
+  ['=ei','🥚'],['=eier','🥚'],['=eis','🍨'],['=tee','🍵'],['=eistee','🧋'],['=ol','🫒'],
+  ['suskartoffel','🍠'],['tomatenmark','🥫'],['passata','🥫'],['dosentomat','🥫'],['kokosmilch','🥥'],
+  ['mandelmilch','🥛'],['hafermilch','🥛'],['sojamilch','🥛'],['milch','🥛'],['joghurt','🥣'],['skyr','🥣'],['quark','🥣'],['sahne','🥛'],['butter','🧈'],['margarine','🧈'],
+  ['frischkase','🧀'],['kase','🧀'],['feta','🧀'],['mozzarella','🧀'],['parmesan','🧀'],['halloumi','🧀'],['gouda','🧀'],['aufschnitt','🥪'],['hummus','🫘'],
+  ['brotchen','🥯'],['croissant','🥐'],['baguette','🥖'],['brezel','🥨'],['toast','🍞'],['brot','🍞'],['tortilla','🫓'],['wrap','🫓'],['naan','🫓'],['pita','🫓'],['kuchen','🍰'],
+  ['apfel','🍎'],['birne','🍐'],['banane','🍌'],['zitrone','🍋'],['limette','🍋'],['orange','🍊'],['mandarine','🍊'],['clementine','🍊'],['traube','🍇'],['erdbeer','🍓'],['himbeer','🫐'],['heidelbeer','🫐'],['blaubeer','🫐'],['beere','🫐'],['kirsch','🍒'],['pfirsich','🍑'],['nektarine','🍑'],['mango','🥭'],['ananas','🍍'],['melone','🍉'],['kiwi','🥝'],['kokos','🥥'],['avocado','🥑'],
+  ['tomate','🍅'],['kartoffel','🥔'],['zwiebel','🧅'],['schalotte','🧅'],['knoblauch','🧄'],['karotte','🥕'],['mohre','🥕'],['paprika','🫑'],['gurke','🥒'],['zucchini','🥒'],['aubergine','🍆'],['salat','🥬'],['rucola','🥬'],['spinat','🥬'],['kohl','🥬'],['brokkoli','🥦'],['pilz','🍄'],['champignon','🍄'],['mais','🌽'],['chili','🌶️'],['ingwer','🫚'],['erbse','🫛'],['kichererbse','🫘'],['bohne','🫘'],['linse','🫘'],['obst','🍎'],['gemuse','🥦'],['basilikum','🌿'],['petersilie','🌿'],['koriander','🌿'],['minze','🌿'],['krauter','🌿'],['dill','🌿'],['schnittlauch','🌿'],
+  ['hahnchen','🍗'],['huhn','🍗'],['pute','🍗'],['speck','🥓'],['bacon','🥓'],['schinken','🥓'],['wurst','🌭'],['salami','🌭'],['hack','🥩'],['steak','🥩'],['rind','🥩'],['schwein','🥩'],['fleisch','🥩'],['lachs','🐟'],['thunfisch','🐟'],['fisch','🐟'],['garnele','🦐'],['shrimp','🦐'],
+  ['pizza','🍕'],['pommes','🍟'],['eiscreme','🍨'],
+  ['nudel','🍝'],['pasta','🍝'],['spaghetti','🍝'],['lasagne','🍝'],['gnocchi','🍝'],['reis','🍚'],['mehl','🌾'],['haferflocken','🥣'],['musli','🥣'],['erdnuss','🥜'],['nuss','🥜'],['mandel','🥜'],['cashew','🥜'],['honig','🍯'],['marmelade','🫙'],['senf','🫙'],['ketchup','🥫'],['dose','🥫'],['sauce','🥫'],['olive','🫒'],['olivenol','🫒'],['salz','🧂'],['pfeffer','🧂'],['zucker','🍬'],['essig','🍶'],['sojasauce','🍶'],
+  ['schokolade','🍫'],['keks','🍪'],['chips','🥔'],['popcorn','🍿'],['gummi','🍬'],['bonbon','🍬'],['salzstang','🥨'],
+  ['kaffee','☕'],['espresso','☕'],['wasser','💧'],['sprudel','💧'],['saft','🧃'],['bier','🍺'],['wein','🍷'],['sekt','🍾'],['prosecco','🍾'],['cola','🥤'],['limo','🥤'],['mate','🥤'],
+  ['klopapier','🧻'],['toilettenpapier','🧻'],['kuchenrolle','🧻'],['taschentuch','🧻'],['spulmittel','🧽'],['schwamm','🧽'],['seife','🧼'],['duschgel','🧴'],['shampoo','🧴'],['creme','🧴'],['lotion','🧴'],['zahnpasta','🪥'],['zahnburste','🪥'],['waschmittel','🧺'],['mull','🗑️'],['batterie','🔋'],['kerze','🕯️'],['blume','💐'],['katze','🐈'],['hund','🐕']
+];
+function emojiFor(name, cat){
+  const t = norm(name), toks = t.split(' ');
+  for (const [p, e] of EMO){
+    if (p[0] === '=' ? toks.includes(p.slice(1)) : t.includes(p)) return e;
+  }
+  return (CAT[cat] || CAT.sonst).e;
+}
+
+/* ============ Zustand ============ */
+function emptyState(){ return { items: {}, hist: {}, cuts: {}, cats: {}, meta: {} }; }
+let S = (() => { try { return JSON.parse(localStorage.getItem(STORE)) || null; } catch(e){ return null; } })() || { tok: '', lists: [], active: '', rem: {}, dirty: {} };
+S.rem = S.rem || {}; S.dirty = S.dirty || {}; S.lists = S.lists || [];
+function save(){ try { localStorage.setItem(STORE, JSON.stringify(S)); } catch(e){} }
+const view = {};   // Liste -> zusammengeführter Stand (Server + eigene, noch nicht gesendete Änderungen)
+function mergeInto(st, dirty){
+  COLS.forEach(c => { st[c] = st[c] || {}; const d = dirty && dirty[c]; if (d) Object.values(d).forEach(e => { const k = keyOf(c, e), o = st[c][k]; if (!o || e.ts > o.ts) st[c][k] = e; }); });
+  return st;
+}
+function rebuild(k){ view[k] = mergeInto(clone((S.rem[k] && S.rem[k].state) || emptyState()), S.dirty[k]); return view[k]; }
+function st(k = S.active){ return view[k] || rebuild(k); }
+function touch(col, e, k = S.active){
+  e.ts = nowTs();
+  const d = (S.dirty[k] = S.dirty[k] || {}); (d[col] = d[col] || {})[keyOf(col, e)] = e;
+  st(k)[col][keyOf(col, e)] = e;
+  save(); scheduleSync(k);
+}
+const listOf = k => S.lists.find(l => l.k === k);
+const listName = l => { const m = st(l.k).meta.name; return (m && m.v) || l.name; };
+const activeItems = k => Object.values(st(k).items).filter(i => !i.del);
+const catFor = (name, k = S.active) => { const n = norm(name), s = st(k); return (s.cats[n] && s.cats[n].cat) || (s.hist[n] && s.hist[n].cat) || classify(name); };
+
+async function createList(name, emoji, withDefaults){
+  const k = rid(16);
+  S.lists.push({ k, name, emoji, fid: await fileId(k) });
+  rebuild(k);
+  if (withDefaults) touch('cuts', { id: rid(6), name: 'Wocheneinkauf', items: ['Brot', 'Eier', 'Mandelmilch', 'Aufschnitt', 'Obst', 'Gemüse'], del: 0 }, k);
+  touch('meta', { k: 'name', v: name }, k);
+  save(); return k;
+}
+
+/* ============ Verschlüsselung (pro Liste eigener Schlüssel) ============ */
+const te = new TextEncoder(), td = new TextDecoder(), keyCache = {};
+function aesKey(secret){
+  return keyCache[secret] || (keyCache[secret] = crypto.subtle.digest('SHA-256', te.encode('key:' + secret)).then(h => crypto.subtle.importKey('raw', h, 'AES-GCM', false, ['encrypt', 'decrypt'])));
+}
+async function fileId(secret){ const h = new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode('list:' + secret))); return [...h.slice(0, 12)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function encryptState(secret, obj){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aesKey(secret), te.encode(JSON.stringify(obj)));
+  return JSON.stringify({ v: 1, iv: b64enc(iv), ct: b64enc(new Uint8Array(ct)) });
+}
+async function decryptState(secret, text){
+  const o = JSON.parse(text);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64dec(o.iv) }, await aesKey(secret), b64dec(o.ct));
+  return JSON.parse(td.decode(pt));
+}
+
+/* ============ GitHub-Speicher (privates Repo) ============ */
+function dataRepo(){
+  if (CONFIG.dataRepo) return CONFIG.dataRepo;
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  return m ? m[1] + '/' + CONFIG.dataRepoName : '';
+}
+const etags = {};
+async function gh(path, opts = {}){
+  const r = await fetch('https://api.github.com/repos/' + dataRepo() + path, { cache: 'no-store', ...opts, headers: { Authorization: 'Bearer ' + S.tok, Accept: 'application/vnd.github+json', ...(opts.headers || {}) } });
+  return r;
+}
+async function ghRead(path){
+  const r = await gh('/contents/' + path + '?ref=' + CONFIG.branch, { headers: etags[path] ? { 'If-None-Match': etags[path] } : {} });
+  if (r.status === 304) return { same: true };
+  if (r.status === 404) return null;
+  if (!r.ok){ const e = new Error('GitHub ' + r.status); e.status = r.status; throw e; }
+  const j = await r.json(); etags[path] = r.headers.get('ETag') || null;
+  return { sha: j.sha, text: atob(String(j.content || '').replace(/\s/g, '')) };
+}
+async function ghWrite(path, text, sha, msg){
+  const r = await gh('/contents/' + path, { method: 'PUT', body: JSON.stringify({ message: msg, content: btoa(text), branch: CONFIG.branch, ...(sha ? { sha } : {}) }) });
+  if (!r.ok){ const e = new Error('GitHub ' + r.status); e.status = r.status; throw e; }
+  const j = await r.json(); delete etags[path];
+  return j.content.sha;
+}
+function purge(s){
+  const cut = Date.now() - 30 * 864e5;
+  ['items', 'cuts'].forEach(c => Object.keys(s[c]).forEach(k => { if (s[c][k].del && s[c][k].ts < cut) delete s[c][k]; }));
+  const h = Object.keys(s.hist); if (h.length > 400) h.sort((a, b) => s.hist[a].last - s.hist[b].last).slice(0, h.length - 400).forEach(k => delete s.hist[k]);
+}
+const syncing = {}, again = {}, timers = {};
+let syncState = 'idle', lastOk = 0, animating = 0, renderPending = false;
+function setSync(s){ syncState = s; $('#sync').dataset.s = s; renderStatus(); }
+function scheduleSync(k, ms = 700){ clearTimeout(timers[k]); timers[k] = setTimeout(() => syncList(k), ms); }
+async function syncList(k){
+  const L = listOf(k); if (!L || !S.tok || !dataRepo()) return;
+  if (syncing[k]){ again[k] = true; return; }
+  syncing[k] = true; setSync('busy');
+  const path = 'lists/' + L.fid + '.json';
+  try {
+    for (let attempt = 0; attempt < 4; attempt++){
+      const d = S.dirty[k] || {}, sent = clone(d);
+      const hasDirty = COLS.some(c => d[c] && Object.keys(d[c]).length);
+      let r = await ghRead(path), remote, sha;
+      if (r && r.same && !S.rem[k]){ delete etags[path]; continue; }
+      if (r && r.same){ remote = clone(S.rem[k].state); sha = S.rem[k].sha; }
+      else if (r){ remote = await decryptState(k, r.text); sha = r.sha; }
+      else { remote = emptyState(); sha = null; }
+      COLS.forEach(c => remote[c] = remote[c] || {});
+      if (hasDirty){
+        const merged = mergeInto(clone(remote), sent); purge(merged);
+        try { const ns = await ghWrite(path, await encryptState(k, merged), sha, 'Liste aktualisiert'); S.rem[k] = { sha: ns, state: merged }; }
+        catch(e){ if (e.status === 409 || e.status === 422){ delete etags[path]; continue; } throw e; }
+      } else S.rem[k] = { sha, state: remote };
+      // bestätigte Änderungen aus der Warteschlange nehmen
+      COLS.forEach(c => { if (!sent[c] || !d[c]) return; Object.entries(sent[c]).forEach(([key, e]) => { if (d[c][key] && d[c][key].ts === e.ts) delete d[c][key]; }); });
+      break;
+    }
+    const before = sig(k); rebuild(k); save(); lastOk = Date.now(); setSync('ok');
+    if (k === S.active && sig(k) !== before) requestRender(); else renderLists();
+  } catch(e){
+    console.warn('Sync', e); setSync(e.status === 401 || e.status === 403 || e.status === 404 ? 'err' : (navigator.onLine ? 'err' : 'idle'));
+    if (e.status === 401) banner('Der Zugang ist ungültig oder abgelaufen. Bitte im Menü einen neuen Zugang eintragen.');
+  } finally {
+    syncing[k] = false; if (again[k]){ again[k] = false; syncList(k); }
+  }
+}
+const sig = k => JSON.stringify(Object.values(st(k).items).filter(i => !i.del).map(i => [i.id, i.name, i.note, i.cat]).sort()) + JSON.stringify(Object.values(st(k).cuts)) + Object.keys(st(k).hist).length;
+function syncAll(){ S.lists.forEach((l, i) => setTimeout(() => syncList(l.k), i * 400)); }
+
+/* ============ Darstellung ============ */
+function requestRender(){ if (animating) renderPending = true; else render(); }
+function render(){ renderPending = false; renderLists(); renderCuts(); renderList(); renderSug(); renderStatus(); }
+function renderLists(){
+  $('#lists').innerHTML = S.lists.map(l => `<button class="ltab" role="tab" type="button" data-list="${esc(l.k)}" aria-selected="${l.k === S.active}"><span aria-hidden="true">${esc(l.emoji || '🛒')}</span>${esc(listName(l))}${activeItems(l.k).length ? `<span class="n">${activeItems(l.k).length}</span>` : ''}</button>`).join('');
+}
+function renderCuts(){
+  const cuts = Object.values(st().cuts).filter(c => !c.del).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  $('#cuts').innerHTML = cuts.map(c => `<button class="cut" type="button" data-cut="${esc(c.id)}">⚡ ${esc(c.name)} <small>${c.items.length}</small></button>`).join('') + `<button class="cut new" type="button" id="cutNew">+ Shortcut</button>`;
+}
+function tileHTML(i){
+  const cat = CAT[i.cat] ? i.cat : catFor(i.name);
+  return `<button class="tile" type="button" data-tile="${esc(i.id)}" style="--c:${CAT[cat].c}"><span class="emo"><span>${emojiFor(i.name, cat)}</span></span><span class="nm">${esc(i.name)}</span>${i.note ? `<span class="nt">${esc(i.note)}</span>` : ''}</button>`;
+}
+function renderList(){
+  const items = activeItems(S.active);
+  if (!items.length){ $('#listArea').innerHTML = `<div class="empty"><strong>Alles erledigt</strong>Neue Einträge oben eintippen oder einen Shortcut antippen.</div>`; return; }
+  const by = {}; items.forEach(i => { const c = CAT[i.cat] ? i.cat : catFor(i.name); (by[c] = by[c] || []).push(i); });
+  $('#listArea').innerHTML = CATS.filter(c => by[c.id]).map(c => `<section class="sec"><h2><span aria-hidden="true">${c.e}</span><b>${esc(c.label)}</b> ${by[c.id].length}</h2><div class="grid">${by[c.id].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(tileHTML).join('')}</div></section>`).join('');
+}
+function suggestions(){
+  const on = new Set(activeItems(S.active).map(i => norm(i.name)));
+  return Object.values(st().hist).filter(h => h.last > 0 && !on.has(h.k)).sort((a, b) => b.last - a.last).slice(0, 18);
+}
+function renderSug(){
+  const s = suggestions();
+  $('#sugArea').innerHTML = s.length ? `<h2>Zuletzt verwendet</h2><div class="chips">${s.map(h => `<button class="chip" type="button" data-sug="${esc(h.k)}"><span class="e" aria-hidden="true">${emojiFor(h.name, h.cat)}</span>${esc(h.name)}</button>`).join('')}</div><p class="foot" style="padding:8px 0 0;text-align:left">Antippen fügt wieder hinzu, gedrückt halten entfernt den Vorschlag.</p>` : '';
+}
+function renderStatus(){
+  const el = $('#status');
+  if (!S.tok) el.textContent = 'Nur auf diesem Gerät gespeichert.';
+  else if (syncState === 'err') el.textContent = 'Synchronisierung fehlgeschlagen. Es wird erneut versucht.';
+  else if (syncState === 'busy') el.textContent = 'Wird synchronisiert …';
+  else if (lastOk) el.textContent = 'Synchronisiert ' + new Date(lastOk).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+  else el.textContent = navigator.onLine ? '' : 'Offline. Änderungen werden später übertragen.';
+  if (!S.tok) banner(`Noch ohne Synchronisierung. <button class="btn small primary" type="button" id="bnSetup">Zugang einrichten</button>`);
+}
+function banner(html){ $('#banner').innerHTML = html ? `<div class="banner"><span>${html}</span></div>` : ''; }
+let toastT = null, toastFn = null;
+function toast(msg, undoFn){
+  $('#toastMsg').textContent = msg; toastFn = undoFn || null; $('#toastBtn').hidden = !undoFn; $('#toast').hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { $('#toast').hidden = true; toastFn = null; }, 5000);
+}
+$('#toastBtn').addEventListener('click', () => { const f = toastFn; $('#toast').hidden = true; toastFn = null; if (f) f(); });
+
+/* ============ Aktionen ============ */
+function parseEntry(raw){
+  let s = raw.trim().replace(/\s+/g, ' '); if (!s) return null;
+  let note = '';
+  const par = s.match(/^(.*?)\s*\(([^)]*)\)\s*$/); if (par){ s = par[1]; note = par[2].trim(); }
+  const q = s.match(/^(\d+(?:[.,]\d+)?\s*(?:x|×|g|kg|ml|l|stk\.?|stück|pck\.?|packung(?:en)?|dosen?|flaschen?|gläser|glas|bund|becher|beutel|netz)?)\s+(.+)$/i);
+  if (q){ note = note ? q[1] + ', ' + note : q[1]; s = q[2]; }
+  return { name: cap(s), note };
+}
+function addEntries(texts, k = S.active, quiet){
+  const undo = [], s = st(k), act = {};
+  activeItems(k).forEach(i => act[norm(i.name)] = i);
+  let added = 0, flashId = null;
+  texts.forEach(t => {
+    const p = typeof t === 'string' ? parseEntry(t) : t; if (!p || !p.name) return;
+    const n = norm(p.name), ex = act[n];
+    if (ex){
+      if (p.note && !(ex.note || '').includes(p.note)){ undo.push(['items', clone(ex)]); touch('items', { ...ex, note: ex.note ? ex.note + ' + ' + p.note : p.note }, k); }
+      flashId = ex.id; return;
+    }
+    const e = { id: rid(8), name: p.name, note: p.note || '', cat: CAT[p.cat] ? p.cat : catFor(p.name, k), del: 0 };
+    undo.push(['items', null, e.id]); touch('items', e, k); act[n] = e; added++; flashId = e.id;
+  });
+  if (k === S.active) render();
+  if (flashId && k === S.active){ const el = $(`[data-tile="${CSS.escape(flashId)}"]`); if (el){ el.classList.add('flash'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+  if (!quiet && undo.length) toast(added === 1 ? '1 Eintrag hinzugefügt' : added + ' Einträge hinzugefügt', () => undoAll(undo, k));
+  return { added, undo };
+}
+function undoAll(undo, k = S.active){
+  undo.forEach(([col, prev, id]) => {
+    if (prev) touch(col, { ...prev }, k);
+    else { const cur = st(k)[col][id]; if (cur) touch(col, { ...cur, del: 1 }, k); }
+  });
+  render();
+}
+function markDone(el){
+  if (el.classList.contains('done')) return;
+  const i = st().items[el.dataset.tile]; if (!i) return;
+  el.classList.add('done'); animating++;
+  if (navigator.vibrate) navigator.vibrate(8);
+  setTimeout(() => {
+    const n = norm(i.name), h = st().hist[n], prevH = h ? clone(h) : null, prevI = clone(i);
+    touch('items', { ...i, del: 1 });
+    touch('hist', { k: n, name: i.name, cat: CAT[i.cat] ? i.cat : catFor(i.name), note: i.note || '', n: (h ? h.n : 0) + 1, last: Date.now() });
+    animating--; requestRender(); if (!animating && renderPending) render();
+    toast(i.name + ' erledigt', () => { touch('items', { ...prevI, del: 0 }); if (prevH) touch('hist', prevH); render(); });
+  }, 560);
+}
+
+/* Langes Drücken / Rechtsklick */
+function bindPress(root, sel, onTap, onLong){
+  let lp = null;
+  root.addEventListener('pointerdown', e => {
+    const t = e.target.closest(sel); if (lp) clearTimeout(lp.timer); lp = null; if (!t || e.button > 0) return;
+    lp = { t, x: e.clientX, y: e.clientY, fired: false };
+    lp.timer = setTimeout(() => { if (!lp) return; lp.fired = true; lp.at = Date.now(); if (navigator.vibrate) navigator.vibrate(15); onLong(t); }, 480);
+  });
+  root.addEventListener('pointermove', e => { if (lp && !lp.fired && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10){ clearTimeout(lp.timer); lp = null; } });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => root.addEventListener(ev, () => { if (lp) clearTimeout(lp.timer); }));
+  root.addEventListener('click', e => {
+    const t = e.target.closest(sel); if (!t) return;
+    if (lp && lp.fired && lp.t === t && Date.now() - lp.at < 1500){ lp = null; e.preventDefault(); return; }
+    lp = null; onTap(t, e);
+  });
+  root.addEventListener('contextmenu', e => {
+    const t = e.target.closest(sel); if (!t) return; e.preventDefault();
+    // nach langem Drücken feuert das Handy zusätzlich ein Kontextmenü: dann nichts doppelt öffnen
+    if (lp && lp.fired && lp.t === t && Date.now() - lp.at < 1000) return;
+    if (lp) clearTimeout(lp.timer);
+    lp = { t, fired: true, at: Date.now() }; onLong(t);
+  });
+}
+
+/* Bearbeiten */
+const NOTE_CHIPS = ['bio', 'vegan', 'groß', 'klein', '2×', '3×', '500 g', '1 kg', 'Angebot', 'Marke egal'];
+let editId = null;
+$('#edCat').innerHTML = CATS.map(c => `<option value="${c.id}">${c.e} ${esc(c.label)}</option>`).join('');
+function noteToks(){ return $('#edNote').value.split(',').map(x => x.trim()).filter(Boolean); }
+function renderNoteChips(){ const t = noteToks(); $('#edChips').innerHTML = NOTE_CHIPS.map(c => `<button class="chip" type="button" data-nc="${esc(c)}" aria-pressed="${t.includes(c)}">${esc(c)}</button>`).join(''); }
+function openEdit(id){
+  const i = st().items[id]; if (!i) return; editId = id;
+  $('#edName').value = i.name; $('#edNote').value = i.note || ''; $('#edCat').value = CAT[i.cat] ? i.cat : catFor(i.name);
+  renderNoteChips(); $('#editDlg').showModal();
+}
+$('#edNote').addEventListener('input', renderNoteChips);
+$('#edChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-nc]'); if (!b) return;
+  let t = noteToks(); const v = b.dataset.nc; t = t.includes(v) ? t.filter(x => x !== v) : [...t, v];
+  $('#edNote').value = t.join(', '); renderNoteChips();
+});
+$('#edSave').addEventListener('click', () => {
+  const i = st().items[editId]; if (!i) return;
+  const name = cap($('#edName').value.trim()) || i.name, cat = $('#edCat').value, prev = clone(i);
+  touch('items', { ...i, name, note: $('#edNote').value.trim(), cat });
+  if (cat !== (CAT[prev.cat] ? prev.cat : classify(prev.name))) touch('cats', { k: norm(name), cat });  // Kategorie merken, gilt künftig für diesen Namen
+  $('#editDlg').close(); render();
+});
+$('#edDel').addEventListener('click', () => {
+  const i = st().items[editId]; if (!i) return; const prev = clone(i);
+  touch('items', { ...i, del: 1 }); $('#editDlg').close(); render();
+  toast(i.name + ' gelöscht', () => { touch('items', { ...prev, del: 0 }); render(); });
+});
+
+/* Shortcuts */
+let cutId = null;
+function openCut(id){
+  cutId = id; const c = id ? st().cuts[id] : null;
+  $('#cuTitle').textContent = c ? 'Shortcut bearbeiten' : 'Neuer Shortcut';
+  $('#cuName').value = c ? c.name : ''; $('#cuItems').value = c ? c.items.join('\n') : ''; $('#cuDel').hidden = !c;
+  $('#cutDlg').showModal();
+}
+$('#cuFromList').addEventListener('click', () => { $('#cuItems').value = activeItems(S.active).map(i => i.name + (i.note ? ' (' + i.note + ')' : '')).join('\n'); });
+$('#cuSave').addEventListener('click', () => {
+  const name = $('#cuName').value.trim(), items = $('#cuItems').value.split(/[\n,]/).map(x => x.trim()).filter(Boolean);
+  if (!name || !items.length) return;
+  const c = cutId ? st().cuts[cutId] : null;
+  touch('cuts', { id: c ? c.id : rid(6), name, items, del: 0 }); $('#cutDlg').close(); render();
+});
+$('#cuDel').addEventListener('click', () => { const c = st().cuts[cutId]; if (c){ touch('cuts', { ...c, del: 1 }); } $('#cutDlg').close(); render(); });
+bindPress($('#cuts'), '.cut', t => {
+  if (t.id === 'cutNew'){ openCut(null); return; }
+  const c = st().cuts[t.dataset.cut]; if (!c) return;
+  const k = S.active, r = addEntries(c.items, k, true), n = r.added;
+  toast(n ? `${c.name}: ${n} ${n === 1 ? 'Eintrag' : 'Einträge'} hinzugefügt` : `${c.name}: alles schon auf der Liste`, r.undo.length ? () => undoAll(r.undo, k) : null);
+}, t => { if (t.id !== 'cutNew') openCut(t.dataset.cut); });
+
+/* Liste, Vorschläge */
+bindPress($('#listArea'), '.tile', t => markDone(t), t => openEdit(t.dataset.tile));
+bindPress($('#sugArea'), '[data-sug]', t => {
+  const h = st().hist[t.dataset.sug]; if (h) addEntries([{ name: h.name, cat: h.cat, note: '' }]);
+}, t => {
+  const h = st().hist[t.dataset.sug]; if (!h) return; const prev = clone(h);
+  touch('hist', { ...h, last: 0 }); render(); toast('Vorschlag entfernt', () => { touch('hist', prev); render(); });
+});
+
+/* Eingabe mit Vorschlägen */
+const COMMON = ['Äpfel','Bananen','Zitronen','Tomaten','Gurke','Paprika','Zwiebeln','Knoblauch','Kartoffeln','Karotten','Brokkoli','Zucchini','Avocado','Salat','Spinat','Champignons','Ingwer','Brot','Brötchen','Toast','Eier','Milch','Mandelmilch','Hafermilch','Butter','Joghurt','Quark','Käse','Feta','Mozzarella','Parmesan','Sahne','Aufschnitt','Tofu','Hummus','Nudeln','Reis','Mehl','Zucker','Haferflocken','Müsli','Kichererbsen','Linsen','Passierte Tomaten','Kokosmilch','Olivenöl','Salz','Pfeffer','Kaffee','Tee','Wasser','Saft','Bier','Wein','Schokolade','Chips','Kekse','Klopapier','Küchenrolle','Spülmittel','Waschmittel','Zahnpasta','Duschgel','Müllbeutel','Obst','Gemüse','Pesto','Honig','Senf','Ketchup'];
+let acSel = -1;
+function acList(q){
+  const n = norm(q); if (!n) return [];
+  const hist = Object.values(st().hist).filter(h => h.k.includes(n)).sort((a, b) => (b.k.startsWith(n) - a.k.startsWith(n)) || b.n - a.n).map(h => ({ name: h.name, cat: h.cat, n: h.n }));
+  const seen = new Set(hist.map(h => norm(h.name)));
+  const com = COMMON.filter(c => norm(c).includes(n) && !seen.has(norm(c))).sort((a, b) => norm(b).startsWith(n) - norm(a).startsWith(n)).map(c => ({ name: c, cat: catFor(c) }));
+  return [...hist, ...com].slice(0, 6);
+}
+function renderAc(){
+  const q = $('#addIn').value; if (/[,\n]/.test(q)){ $('#ac').hidden = true; return; }
+  const l = acList(q); acSel = Math.min(acSel, l.length - 1);
+  $('#ac').hidden = !l.length;
+  $('#ac').innerHTML = l.map((x, i) => `<button type="button" role="option" data-ac="${esc(x.name)}" aria-selected="${i === acSel}"><span aria-hidden="true">${emojiFor(x.name, x.cat)}</span>${esc(x.name)}${x.n ? `<small>${x.n}×</small>` : ''}</button>`).join('');
+}
+$('#addIn').addEventListener('input', () => { acSel = -1; renderAc(); });
+$('#addIn').addEventListener('keydown', e => {
+  const n = $$('#ac button').length; if (!n || $('#ac').hidden) return;
+  if (e.key === 'ArrowDown'){ acSel = (acSel + 1) % n; renderAc(); e.preventDefault(); }
+  if (e.key === 'ArrowUp'){ acSel = (acSel - 1 + n) % n; renderAc(); e.preventDefault(); }
+  if (e.key === 'Escape'){ $('#ac').hidden = true; }
+});
+$('#addIn').addEventListener('blur', () => setTimeout(() => { $('#ac').hidden = true; }, 150));
+$('#ac').addEventListener('pointerdown', e => e.preventDefault());
+$('#ac').addEventListener('click', e => { const b = e.target.closest('[data-ac]'); if (!b) return; addEntries([b.dataset.ac]); $('#addIn').value = ''; $('#ac').hidden = true; $('#addIn').focus(); });
+$('#addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const sel = acSel >= 0 ? $$('#ac button')[acSel] : null;
+  const v = sel ? sel.dataset.ac : $('#addIn').value;
+  const parts = v.split(/[,\n]/).map(x => x.trim()).filter(Boolean); if (!parts.length) return;
+  addEntries(parts); $('#addIn').value = ''; acSel = -1; $('#ac').hidden = true;
+});
+
+/* Listen wechseln */
+$('#lists').addEventListener('click', e => { const b = e.target.closest('[data-list]'); if (!b) return; S.active = b.dataset.list; save(); render(); syncList(S.active); window.scrollTo(0, 0); });
+
+/* ============ Menü: Listen, Teilen, Zugang, Roster ============ */
+function joinLink(lists, withTok){ return location.origin + location.pathname + '#/join?d=' + b64uJSON({ ...(withTok && S.tok ? { t: S.tok } : {}), l: lists.map(l => ({ k: l.k, n: listName(l), e: l.emoji })) }); }
+function rosterLink(){ return new URL(CONFIG.rosterUrl, location.href).href + '#/einkauf?d=' + b64uJSON({ t: S.tok, l: S.lists.map(l => ({ k: l.k, n: listName(l) })) }); }
+async function share(text, url, btn){
+  if (navigator.share){ try { await navigator.share({ title: 'Einkaufsliste', text, url }); return; } catch(e){ if (e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(url); btn.textContent = 'Link kopiert'; } catch(e){ window.prompt('Link kopieren:', url); }
+}
+function renderMenu(){
+  $('#menuBody').innerHTML = `
+    <h4>Listen</h4>
+    <div class="mlist">${S.lists.map(l => `<div class="mrow"><span class="e" aria-hidden="true">${esc(l.emoji || '🛒')}</span><input value="${esc(listName(l))}" data-rename="${esc(l.k)}" maxlength="30" aria-label="Name der Liste"><button class="btn small" type="button" data-share="${esc(l.k)}">Teilen</button><button class="btn small danger" type="button" data-remove="${esc(l.k)}" aria-label="Liste von diesem Gerät entfernen">×</button></div>`).join('')}</div>
+    <div class="row"><button class="btn small" type="button" id="newList">+ Neue Liste</button></div>
+    <p>„Teilen“ schickt einen Link. Wer ihn öffnet, bekommt die Liste dazu (mit Zugang zur Synchronisierung). Das × entfernt eine Liste nur von diesem Gerät.</p>
+    <h4>Link oder Code einfügen</h4>
+    <div class="row"><input type="text" id="joinIn" placeholder="https://…#/join?d=…" style="flex:1"><button class="btn small" type="button" id="joinGo">Hinzufügen</button></div>
+    <h4>Synchronisierung</h4>
+    <p>${S.tok ? 'Zugang ist eingerichtet. Listen werden verschlüsselt im privaten Repository gespeichert.' : 'Ohne Zugang bleiben die Listen nur auf diesem Gerät.'}</p>
+    <label>GitHub-Zugang (Token)<input type="password" id="tokIn" placeholder="github_pat_…" autocomplete="off"></label>
+    <div class="row"><button class="btn small primary" type="button" id="tokSave">Zugang speichern</button>${S.tok ? '<button class="btn small" type="button" id="tokDel">Zugang entfernen</button>' : ''}</div>
+    <div class="msg" id="tokMsg"></div>
+    <h4>Gerichte-Roster</h4>
+    <p>Auf Android und am Computer findet der Roster die Listen von selbst. Auf dem iPhone einmal verbinden:</p>
+    <div class="row"><button class="btn small" type="button" id="rosterGo"${S.tok ? '' : ' disabled'}>Mit Gerichte-Roster verbinden</button></div>`;
+}
+$('#menuBtn').addEventListener('click', () => { renderMenu(); $('#menuDlg').showModal(); });
+$('#banner').addEventListener('click', e => { if (e.target.closest('#bnSetup')){ renderMenu(); $('#menuDlg').showModal(); setTimeout(() => $('#tokIn').focus(), 50); } });
+$('#menuBody').addEventListener('change', e => {
+  const r = e.target.closest('[data-rename]'); if (!r) return;
+  const v = r.value.trim(); if (!v) return; const l = listOf(r.dataset.rename); l.name = v; touch('meta', { k: 'name', v }, l.k); renderLists();
+});
+$('#menuBody').addEventListener('click', async e => {
+  const t = e.target;
+  const sh = t.closest('[data-share]'); if (sh){ const l = listOf(sh.dataset.share); await share('Einkaufsliste „' + listName(l) + '“', joinLink([l], true), sh); return; }
+  const rm = t.closest('[data-remove]'); if (rm){
+    if (!rm.dataset.armed){ rm.dataset.armed = 1; rm.textContent = 'Sicher?'; setTimeout(() => { if (rm.isConnected){ delete rm.dataset.armed; rm.textContent = '×'; } }, 3000); return; }
+    const k = rm.dataset.remove; S.lists = S.lists.filter(l => l.k !== k); delete S.rem[k]; delete S.dirty[k]; delete view[k];
+    if (!S.lists.length) await createList('Privat', '🔒', true);
+    if (S.active === k) S.active = S.lists[0].k; save(); renderMenu(); render(); return;
+  }
+  if (t.closest('#newList')){ const k = await createList('Neue Liste', ['🧺','🛍️','🥕','🏕️','🎉'][S.lists.length % 5], false); S.active = k; save(); renderMenu(); render(); setTimeout(() => { const i = $(`[data-rename="${CSS.escape(k)}"]`); if (i){ i.focus(); i.select(); } }, 30); return; }
+  if (t.closest('#joinGo')){ const v = $('#joinIn').value.trim(); const m = v.match(/[?&#]d=([A-Za-z0-9_-]+)/) || v.match(/^([A-Za-z0-9_-]{20,})$/); if (m){ $('#menuDlg').close(); askJoin(m[1]); } return; }
+  if (t.closest('#tokSave')){
+    const tok = $('#tokIn').value.trim(), msg = $('#tokMsg'); if (!tok) return;
+    msg.className = 'msg'; msg.textContent = 'Wird geprüft …';
+    const old = S.tok; S.tok = tok;
+    try {
+      const r = await gh(''); if (!r.ok) throw Object.assign(new Error(), { status: r.status });
+      const j = await r.json(); if (!j.permissions || !j.permissions.push) throw Object.assign(new Error(), { status: 403 });
+      save(); msg.textContent = 'Gespeichert.'; banner(''); renderMenu(); syncAll();
+    } catch(err){ S.tok = old; msg.className = 'msg err'; msg.textContent = err.status === 401 ? 'Der Zugang ist ungültig.' : 'Der Zugang hat keinen Schreibzugriff auf ' + dataRepo() + '.'; }
+    return;
+  }
+  if (t.closest('#tokDel')){ S.tok = ''; save(); renderMenu(); renderStatus(); return; }
+  if (t.closest('#rosterGo')){ location.href = rosterLink(); return; }
+});
+
+/* Beitreten über Link */
+let joinData = null;
+function askJoin(d){
+  try { joinData = unb64uJSON(d); } catch(e){ toast('Der Link ist unvollständig.'); return; }
+  const ls = (joinData.l || []).filter(x => x.k && !listOf(x.k));
+  if (!ls.length && !joinData.t){ toast('Diese Liste ist schon vorhanden.'); joinData = null; return; }
+  $('#joText').textContent = ls.length ? `${ls.length === 1 ? 'Liste' : 'Listen'} „${ls.map(x => x.n).join('“, „')}“ zu diesem Gerät hinzufügen?${joinData.t && !S.tok ? ' Die Synchronisierung wird dabei eingerichtet.' : ''}` : 'Zugang zur Synchronisierung übernehmen?';
+  $('#joinDlg').showModal();
+}
+$('#joNo').addEventListener('click', () => { joinData = null; $('#joinDlg').close(); });
+$('#joYes').addEventListener('click', async () => {
+  const d = joinData; joinData = null; $('#joinDlg').close(); if (!d) return;
+  if (d.t && !S.tok) S.tok = d.t;
+  for (const x of (d.l || [])){
+    if (!x.k || listOf(x.k)) continue;
+    // eine leere, nie synchronisierte Liste gleichen Namens wird ersetzt
+    const twin = S.lists.find(l => listName(l) === x.n && !S.rem[l.k] && !activeItems(l.k).length);
+    if (twin){ S.lists = S.lists.filter(l => l !== twin); delete S.dirty[twin.k]; delete view[twin.k]; }
+    S.lists.push({ k: x.k, name: x.n || 'Liste', emoji: x.e || '🧺', fid: await fileId(x.k) }); rebuild(x.k); S.active = x.k;
+  }
+  save(); banner(''); render(); syncAll(); toast('Liste hinzugefügt');
+});
+
+/* ============ Start ============ */
+async function init(){
+  if (!S.lists.length){
+    const joining = /^#\/join\?d=/.test(location.hash);
+    if (!joining) await createList('Gemeinsam', '🧺', true);
+    await createList('Privat', '🔒', true);
+    S.active = S.lists[0].k; save();
+  }
+  for (const l of S.lists) if (!l.fid) l.fid = await fileId(l.k);
+  if (!listOf(S.active)) S.active = S.lists[0].k;
+  render(); syncAll();
+  const m = location.hash.match(/^#\/join\?d=([A-Za-z0-9_-]+)/);
+  if (m){ history.replaceState(null, '', location.pathname); askJoin(m[1]); }
+}
+let tick = 0;
+setInterval(() => { if (document.visibilityState !== 'visible' || !navigator.onLine) return; tick++; syncList(S.active); if (tick % 4 === 0) S.lists.filter(l => l.k !== S.active).forEach(l => syncList(l.k)); }, CONFIG.pollMs);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncAll(); });
+window.addEventListener('online', () => { renderStatus(); syncAll(); });
+window.addEventListener('offline', renderStatus);
+// Änderungen aus einem anderen Tab desselben Geräts übernehmen (z. B. aus dem Gerichte-Roster)
+window.addEventListener('storage', e => { if (e.key !== STORE || !e.newValue) return; try { const n = JSON.parse(e.newValue); S.lists = n.lists; S.rem = n.rem; S.dirty = n.dirty; S.tok = n.tok; S.lists.forEach(l => rebuild(l.k)); if (!listOf(S.active)) S.active = S.lists[0].k; render(); } catch(_){} });
+
+/* App-Installation */
+const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installEvt = null;
+if (!isStandalone && isIOS) $('#installBtn').hidden = false;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!isStandalone) $('#installBtn').hidden = false; });
+window.addEventListener('appinstalled', () => { $('#installBtn').hidden = true; });
+$('#installBtn').addEventListener('click', async () => { if (installEvt){ installEvt.prompt(); try { await installEvt.userChoice; } catch(e){} installEvt = null; $('#installBtn').hidden = true; } else toast('Unten auf „Teilen“ tippen und dann „Zum Home-Bildschirm“ wählen.'); });
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+
+window.__shop = { S, st, classify, emojiFor, syncList };
+init();
+})();
+</script>
+</body>
+</html>
