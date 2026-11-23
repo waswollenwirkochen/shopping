@@ -102,21 +102,24 @@ button,a,label,select{touch-action:manipulation;-webkit-tap-highlight-color:tran
 .chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 
 /* Dialoge */
-dialog{border:0;border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 40px);background:var(--bg);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog{border:0;border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 40px);overflow-x:hidden;overflow-y:auto;background:var(--bg);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
 dialog::backdrop{background:rgba(8,16,13,.5)}
 .dh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 6px}
 .dh h3{font:800 1.3rem var(--display);margin:0}
 .x{background:none;border:0;font-size:1.7rem;line-height:1;cursor:pointer;padding:4px 8px}
-.db{padding:6px 16px 18px;display:grid;gap:12px}
+.db{padding:6px 16px 18px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.db>*{min-width:0}
+.dh h3{min-width:0;overflow-wrap:anywhere}
 .db label{display:grid;gap:5px;font-weight:600;font-size:.93rem}
 .db input[type=text],.db input[type=password],.db textarea,.db select{width:100%;border:2px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 12px;font-size:16px;font-weight:400}
 .db textarea{min-height:130px;resize:vertical}
 .db p{margin:0;color:var(--muted);font-size:.92rem}
-.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;min-width:0}
+.row input[type=text]{flex:1 1 160px;width:auto;min-width:0}
 .row.end{justify-content:flex-end}
 .mlist{display:grid;gap:8px}
-.mrow{display:flex;gap:8px;align-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:8px 10px}
-.mrow input{flex:1;min-width:0;border:0;background:transparent;font-weight:700;font-size:16px;padding:4px}
+.mrow{display:flex;gap:8px;align-items:center;min-width:0;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:8px 10px}
+.mrow input{flex:1 1 0;width:0;min-width:0;border:0;background:transparent;font-weight:700;font-size:16px;padding:4px}
 .mrow .e{font-size:1.3rem}
 h4{margin:10px 0 0;font:700 1rem var(--display)}
 .msg{min-height:1.2em;font-size:.92rem}.msg.err{color:var(--danger)}
@@ -653,7 +656,7 @@ function renderMenu(){
     <div class="row"><button class="btn small" type="button" id="newList">+ Neue Liste</button></div>
     <p>„Teilen“ schickt einen Link. Wer ihn öffnet, bekommt die Liste dazu (mit Zugang zur Synchronisierung). Das × entfernt eine Liste nur von diesem Gerät.</p>
     <h4>Link oder Code einfügen</h4>
-    <div class="row"><input type="text" id="joinIn" placeholder="https://…#/join?d=…" style="flex:1"><button class="btn small" type="button" id="joinGo">Hinzufügen</button></div>
+    <div class="row"><input type="text" id="joinIn" placeholder="Link einfügen"><button class="btn small" type="button" id="joinGo">Hinzufügen</button></div>
     <h4>Synchronisierung</h4>
     <p>${S.tok ? 'Zugang ist eingerichtet. Listen werden verschlüsselt im privaten Repository gespeichert.' : 'Ohne Zugang bleiben die Listen nur auf diesem Gerät.'}</p>
     <label>GitHub-Zugang (Token)<input type="password" id="tokIn" placeholder="github_pat_…" autocomplete="off"></label>
