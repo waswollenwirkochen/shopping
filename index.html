@@ -499,7 +499,7 @@ function addEntries(texts, k = S.active, quiet){
     undo.push(['items', null, e.id]); touch('items', e, k); act[n] = e; added++; flashId = e.id;
   });
   if (k === S.active) render();
-  if (flashId && k === S.active){ const el = $(`[data-tile="${CSS.escape(flashId)}"]`); if (el){ el.classList.add('flash'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+  if (flashId && k === S.active){ const el = $(`[data-tile="${CSS.escape(flashId)}"]`); if (el) el.classList.add('flash'); /* nicht scrollen: Eingabe bleibt im Blick */ }
   if (!quiet && undo.length) toast(added === 1 ? '1 Eintrag hinzugefügt' : added + ' Einträge hinzugefügt', () => undoAll(undo, k));
   return { added, undo };
 }
