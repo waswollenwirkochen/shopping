@@ -444,7 +444,8 @@ function renderList(){
   const items = activeItems(S.active);
   if (!items.length){ $('#listArea').innerHTML = `<div class="empty"><strong>Alles erledigt</strong>Neue Einträge oben eintippen oder einen Shortcut antippen.</div>`; return; }
   const by = {}; items.forEach(i => { const c = CAT[i.cat] ? i.cat : catFor(i.name); (by[c] = by[c] || []).push(i); });
-  $('#listArea').innerHTML = CATS.filter(c => by[c.id]).map(c => `<section class="sec"><h2><span aria-hidden="true">${c.e}</span><b>${esc(c.label)}</b> ${by[c.id].length}</h2><div class="grid">${by[c.id].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(tileHTML).join('')}</div></section>`).join('');
+  $('#listArea').innerHTML = CATS.filter(c => by[c.id]).map(c => `<section class="sec"><h2><span aria-hidden="true">${c.e}</span><b>${esc(c.label)}</b> ${by[c.id].length}</h2><div class="grid">${by[c.id].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(tileHTML).join('')}</div></section>`).join('')
+    + `<div class="row end" style="margin-top:18px"><button class="btn small danger" type="button" id="clearList">Liste leeren</button></div>`;
 }
 function suggestions(){
   const on = new Set(activeItems(S.active).map(i => norm(i.name)));
@@ -602,6 +603,13 @@ bindPress($('#cuts'), '.cut', t => {
 
 /* Liste, Vorschläge */
 bindPress($('#listArea'), '.tile', t => markDone(t), t => openEdit(t.dataset.tile));
+$('#listArea').addEventListener('click', e => {
+  const b = e.target.closest('#clearList'); if (!b) return;
+  if (!b.dataset.armed){ b.dataset.armed = '1'; b.textContent = 'Wirklich alles löschen?'; setTimeout(() => { if (b.isConnected){ delete b.dataset.armed; b.textContent = 'Liste leeren'; } }, 3500); return; }
+  const k = S.active, prev = activeItems(k).map(i => clone(i));
+  prev.forEach(i => touch('items', { ...i, del: 1 }, k));
+  render(); toast(prev.length === 1 ? '1 Eintrag gelöscht' : prev.length + ' Einträge gelöscht', () => { prev.forEach(i => touch('items', { ...i, del: 0 }, k)); render(); });
+});
 bindPress($('#sugArea'), '[data-sug]', t => {
   const h = st().hist[t.dataset.sug]; if (h) addEntries([{ name: h.name, cat: h.cat, note: '' }]);
 }, t => {
